@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="bn" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoSim: জিওপলিটিক্যাল ও বিশ্ব ক্ষমতা সিমুলেটর</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0b0f19',
+                        panelbg: '#111827',
+                        bordercolor: '#1f2937'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-darkbg text-gray-100 font-sans antialiased min-h-screen flex flex-col justify-between selection:bg-sky-500 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-panelbg border-b border-gray-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-sky-600 to-indigo-600 text-white p-2.5 rounded-xl shadow-lg">
+                    <i class="fa-solid fa-earth-americas text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-xl leading-tight tracking-wide text-white flex items-center gap-2">
+                        জিওসিম (GeoSim)
+                        <span class="text-[10px] bg-sky-950 text-sky-400 font-semibold px-2.5 py-0.5 rounded-full border border-sky-800">ভার্সন ২.০ ডাইনামিক</span>
+                    </h1>
+                    <p class="text-xs text-gray-400">গ্লোবাল ভূ-রাজনীতি, মতাদর্শ ও শাসন ব্যবস্থা সিমুলেটর</p>
+                </div>
+            </div>
+
+            <!-- Country Switcher in Header -->
+            <div class="flex items-center space-x-3 bg-gray-900/80 p-1.5 rounded-xl border border-gray-800">
+                <span class="text-xs font-semibold text-gray-400 pl-2">রাষ্ট্র পরিচালনা করুন:</span>
+                <select id="countrySelect" onchange="changeCountry()" class="bg-gray-800 text-sky-400 font-bold text-sm rounded-lg px-3 py-1.5 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+
+            <!-- Global Action Bar -->
+            <div class="flex items-center space-x-2">
+                <button id="syncNewsBtn" onclick="syncRealWorldEvents()" class="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-semibold px-3 py-2 rounded-lg flex items-center space-x-2 transition shadow duration-200">
+                    <i class="fa-solid fa-rotate-right" id="syncIcon"></i>
+                    <span>বিশ্ব আপডেট সিঙ্ক</span>
+                </button>
+                <button onclick="nextTurn()" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center space-x-2 shadow transition duration-200">
+                    <i class="fa-solid fa-forward"></i>
+                    <span>পরবর্তী মাস (টার্ন)</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dynamic Navigation Tabs -->
+    <div class="bg-gray-900/50 border-b border-gray-800/80">
+        <div class="max-w-7xl mx-auto px-4 flex space-x-2 overflow-x-auto text-xs py-2">
+            <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn bg-sky-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-chart-pie"></i> ওভারভিউ ও বাজেট
+            </button>
+            <button onclick="switchTab('orders')" id="tab-orders" class="tab-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg font-semibold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-scroll text-amber-400"></i> আদেশ ও জারি (Executive Orders)
+            </button>
+            <button onclick="switchTab('demands')" id="tab-demands" class="tab-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg font-semibold flex items-center gap-1.5 transition relative">
+                <i class="fa-solid fa-bell text-rose-400"></i> দাবি ও বিজ্ঞপ্তি
+                <span id="demandBadge" class="bg-rose-600 text-white text-[10px] px-1.5 py-0.2 rounded-full ml-1">0</span>
+            </button>
+            <button onclick="switchTab('ideology')" id="tab-ideology" class="tab-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg font-semibold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-brain text-purple-400"></i> একক ধর্ম ও মতাদর্শ
+            </button>
+            <button onclick="switchTab('diplomacy')" id="tab-diplomacy" class="tab-btn bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg font-semibold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-handshake text-emerald-400"></i> পররাষ্ট্র ও যুদ্ধ
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Workspace Container -->
+    <main class="max-w-7xl w-full mx-auto p-4 flex-grow">
+
+        <!-- Header Info Bar of Selected Country -->
+        <div class="bg-panelbg border border-gray-800 rounded-xl p-4 shadow-lg mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <div id="countryFlagIcon" class="text-4xl bg-gray-800 p-3 rounded-xl border border-gray-700 text-amber-400">
+                    <i class="fa-solid fa-building-columns"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 id="countryNameView" class="text-2xl font-bold text-white">বাংলাদেশ</h2>
+                        <span id="countryRankTag" class="bg-amber-950 text-amber-400 border border-amber-800 text-xs px-2.5 py-0.5 rounded-full font-medium">গ্লোবাল র‍্যাংক #২৮</span>
+                    </div>
+                    <p id="countryLeaderView" class="text-xs text-gray-400 mt-0.5">রাষ্ট্রপ্রধান: প্রধানমন্ত্রী / প্রধান উপদেষ্টা | রাষ্ট্রীয় আইডিওলজি: ধর্মনিরপেক্ষ উন্নয়ন শাসন</p>
+                </div>
+            </div>
+
+            <!-- Dynamic Key Indicators -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                <div class="bg-gray-900 border border-gray-800 p-2.5 rounded-lg text-center min-w-[110px]">
+                    <div class="text-gray-400">মোট জিডিপি (GDP)</div>
+                    <div id="statGDP" class="font-bold text-emerald-400 text-sm mt-0.5">$৪৬০ বিলিয়ন</div>
+                </div>
+                <div class="bg-gray-900 border border-gray-800 p-2.5 rounded-lg text-center min-w-[110px]">
+                    <div class="text-gray-400">জনসংখ্যা</div>
+                    <div id="statPop" class="font-bold text-sky-400 text-sm mt-0.5">১৭০ মিলিয়ন</div>
+                </div>
+                <div class="bg-gray-900 border border-gray-800 p-2.5 rounded-lg text-center min-w-[110px]">
+                    <div class="text-gray-400">জনগণ সন্তুষ্টি</div>
+                    <div id="statHappiness" class="font-bold text-amber-400 text-sm mt-0.5">৭২%</div>
+                </div>
+                <div class="bg-gray-900 border border-gray-800 p-2.5 rounded-lg text-center min-w-[110px]">
+                    <div class="text-gray-400">সামরিক সক্ষমতা</div>
+                    <div id="statMilitaryPower" class="font-bold text-purple-400 text-sm mt-0.5">৬৪.০</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 1: OVERVIEW & RESOURCE ALLOCATION -->
+        <div id="content-overview" class="tab-content space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left: Budget Controls -->
+                <div class="lg:col-span-7 bg-panelbg border border-gray-800 rounded-xl p-5 shadow-lg space-y-5">
+                    <div class="flex justify-between items-center border-b border-gray-800 pb-3">
+                        <h3 class="text-sm font-semibold uppercase tracking-wider text-sky-400 flex items-center gap-2">
+                            <i class="fa-solid fa-sliders"></i> জাতীয় বাজেট ও খাতভিত্তিক বরাদ্দ
+                        </h3>
+                        <span id="statTreasury" class="text-xs bg-emerald-950 text-emerald-300 border border-emerald-800 px-3 py-1 rounded-full font-bold">রাজকোষ: $১১০ বিলিয়ন</span>
+                    </div>
+
+                    <!-- Sliders -->
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-300"><i class="fa-solid fa-wheat-awn text-amber-500 mr-2"></i> খাদ্য, কৃষি ও রেশন ব্যবস্থা</span>
+                                <span id="valFood" class="text-sky-400 font-bold">২৫%</span>
+                            </div>
+                            <input type="range" id="slideFood" min="5" max="50" value="25" oninput="updateSliders()" class="w-full accent-sky-500 bg-gray-800 h-2 rounded-lg">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-300"><i class="fa-solid fa-kit-medical text-rose-400 mr-2"></i> স্বাস্থ্য ও সামাজিক নিরাপত্তা</span>
+                                <span id="valHealth" class="text-sky-400 font-bold">২৫%</span>
+                            </div>
+                            <input type="range" id="slideHealth" min="5" max="50" value="25" oninput="updateSliders()" class="w-full accent-sky-500 bg-gray-800 h-2 rounded-lg">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-300"><i class="fa-solid fa-shield-halved text-blue-400 mr-2"></i> প্রতিরক্ষা ও সামরিক সক্ষমতা</span>
+                                <span id="valMilitary" class="text-sky-400 font-bold">২০%</span>
+                            </div>
+                            <input type="range" id="slideMilitary" min="5" max="50" value="20" oninput="updateSliders()" class="w-full accent-sky-500 bg-gray-800 h-2 rounded-lg">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-300"><i class="fa-solid fa-graduation-cap text-emerald-400 mr-2"></i> শিক্ষা, বিজ্ঞান ও গবেষণা</span>
+                                <span id="valEdu" class="text-sky-400 font-bold">৩০%</span>
+                            </div>
+                            <input type="range" id="slideEdu" min="5" max="50" value="30" oninput="updateSliders()" class="w-full accent-sky-500 bg-gray-800 h-2 rounded-lg">
+                        </div>
+                    </div>
+
+                    <!-- Domestic Stability Monitor -->
+                    <div class="bg-gray-900 border border-gray-800 p-4 rounded-xl space-y-3">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-semibold text-gray-300">রাজনৈতিক অসন্তোষ ও আন্দোলন সূচক:</span>
+                            <span id="statUnrestText" class="text-emerald-400 font-bold">কম (১৫%)</span>
+                        </div>
+                        <div class="w-full bg-gray-800 h-2.5 rounded-full overflow-hidden">
+                            <div id="barUnrest" class="bg-emerald-500 h-full w-[15%] transition-all duration-300"></div>
+                        </div>
+                        <p class="text-[11px] text-gray-500 leading-relaxed">বাজেটে পর্যাপ্ত খাদ্য বা চিকিৎসায় বরাদ্দ কমলে অথবা রাজনৈতিক নিষেধাজ্ঞা জারিতে আন্দোলনে বিশৃঙ্খলা বেড়ে যাবে।</p>
+                    </div>
+                </div>
+
+                <!-- Right: Active Cabinet Ministers & Internal Politics -->
+                <div class="lg:col-span-5 bg-panelbg border border-gray-800 rounded-xl p-5 shadow-lg space-y-4">
+                    <h3 class="text-sm font-semibold uppercase tracking-wider text-amber-400 border-b border-gray-800 pb-3 flex items-center justify-between">
+                        <span><i class="fa-solid fa-users-gear mr-2"></i> নির্বাচিত মন্ত্রিসভা ও আনুগত্য</span>
+                        <button onclick="reshuffleCabinet()" class="text-[11px] bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 px-2.5 py-1 rounded">পুনর্গঠন করুন</button>
+                    </h3>
+
+                    <div id="cabinetList" class="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+                        <!-- Dynamic Ministers -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: EXECUTIVE ORDERS & SANCTIONS (জারি করার বক্স) -->
+        <div id="content-orders" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Order Form -->
+                <div class="lg:col-span-6 bg-panelbg border border-gray-800 rounded-xl p-5 shadow-lg space-y-4">
+                    <div class="border-b border-gray-800 pb-3">
+                        <h3 class="text-sm font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                            <i class="fa-solid fa-file-signature"></i> নতুন আদেশ বা স্যাংশন (নিষেধাজ্ঞা) জারি করুন
+                        </h3>
+                        <p class="text-xs text-gray-400 mt-1">প্রেসিডেন্ট বা সরকার হিসেবে আপনার দেশের কোম্পানি, জনগণ বা নির্দিষ্ট কোনো দেশের ওপর যেকোনো নিষেধাজ্ঞা বা বিশেষ আইন জারি করুন।</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-300 mb-1">আদেশের ধরন / লক্ষ্য:</label>
+                            <select id="orderTarget" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white">
+                                <option value="economic">অর্থনৈতিক বা ট্যাক্স আদেশ (Economic Decree)</option>
+                                <option value="sanction">বিদেশী রাষ্ট্রের ওপর নিষেধাজ্ঞা (Foreign Sanction)</option>
+                                <option value="media">মিডিয়া ও বাকস্বাধীনতা কড়াকড়ি (Media Control)</option>
+                                <option value="religious">ধর্মীয় ও সামাজিক আইন সংশোধন (Social/Religious Law)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-300 mb-1">আদেশের বিবরণ (টাইপ করুন):</label>
+                            <textarea id="orderInputText" rows="4" placeholder="উদাহরণ: তেল রপ্তানির ওপর ১০% অতিরিক্ত ট্যাক্স জারি করা হলো অথবা বিরোধী রাজনৈতিক দলের ওপর বিশেষ নজরদারি বাড়ানো হলো..." class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500"></textarea>
+                        </div>
+
+                        <button onclick="issueExecutiveOrder()" class="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold text-xs py-3 rounded-lg shadow-lg transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-gavel"></i> সরকারি গ্যাজেট আকারে আদেশ জারি করুন
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Enforced Orders Log -->
+                <div class="lg:col-span-6 bg-panelbg border border-gray-800 rounded-xl p-5 shadow-lg flex flex-col h-[400px]">
+                    <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-300 border-b border-gray-800 pb-3 mb-3 flex items-center justify-between">
+                        <span><i class="fa-solid fa-list-check text-emerald-400 mr-2"></i>কার্যকর হওয়া আদেশসমূহ (Enforced Orders)</span>
+                        <span id="activeOrdersCount" class="text-xs text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">০ টি সক্রিয়</span>
+                    </h3>
+
+                    <div id="ordersLogList" class="flex-1 overflow-y-auto space-y-3 text-xs pr-1">
+                        <div class="text-center text-gray-500 py-10">এখনো কোনো বিশেষ গ্যাজেট বা আদেশ জারি করা হয়নি।</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: DEMANDS & NOTIFICATIONS (দাবি ও নোটিফিকেশন) -->
+        <div id="content-demands" class="tab-content hidden space-y-6">
+            <div class="bg-panelbg border border-gray-800 rounded-xl p-5 shadow-lg">
+                <div class="flex justify-between items-center border-b border-gray-800 pb-3 mb-4">
+                    <div>
+                        <h3 class="text-sm font-semibold uppercase tracking-wider text-rose-400 flex items-center gap-2">
+                            <i class="fa-solid fa-bullhorn"></i> বিভিন্ন প্রতিষ্ঠান ও জনগণের চাওয়া-পাওয়া এবং দাবি
+                        </h3>
+                        <p class="text-xs text-gray-400">শিক্ষক সমিতি, সেনাবাহিনী, রাজনৈতিক দল এবং ধার্মিক গোষ্ঠীর পক্ষ থেকে আসা আবেদনসমূহ সময়মতো সিদ্ধান্ত দিন।</p>
+                    </div>
+                    <button onclick="generateRandomDemand()" class="bg-gray-800 hover:bg-gray-700 text-xs text-gray-300 px-3 py-1.5 rounded-lg border border-gray-700">
+                        <i class="fa-solid fa-arrows-rotate mr-1"></i> নতুন আবেদন আহ্বান করুন
+                    </button>
+                </div>
+
+                <div id="demandsFeedList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Dynamic Demand Cards -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: UNIFIED RELIGION & IDEOLOGY EXPERIMENT -->
+        <div id="content-ideology" class="tab-content hidden space-y-6">
+            <div class="bg-panelbg border border-gray-800 rounded-xl p-5 shadow-lg border-l-4 border-l-purple-500 space-y-4">
+                <div>
+                    <h3 class="text-sm font-bold text-purple-400 flex items-center gap-2">
+                        <i class="fa-solid fa-brain"></i> এক একক ধর্ম বা চরম মতাদর্শ সিমুলেশন মেকানিজম
+                    </h3>
+                    <p class="text-xs text-gray-400 mt-1">পুরো পৃথিবীতে যদি একটিমাত্র ধর্ম বা চিন্তাধারা ছড়িয়ে পড়ে, তবে মানুষের মধ্যে নতুন কী সমস্যা ও পরিবর্তন আসবে তা গ্লোবালি পরীক্ষা করুন।</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button onclick="setGlobalIdeology('unified')" class="bg-gray-900 hover:bg-purple-950 border border-gray-800 hover:border-purple-700 p-4 rounded-xl text-left transition space-y-2">
+                        <div class="font-bold text-xs text-purple-300 flex items-center gap-2">
+                            <i class="fa-solid fa-hands-praying"></i> একক ধর্মীয় বিশ্বব্যবস্থা
+                        </div>
+                        <p class="text-[11px] text-gray-400 leading-relaxed">যুদ্ধ কমবে তবে অভ্যন্তরীণ মতপার্থক্য, নতুন উপ-দল সৃষ্টি এবং প্রথা কেন্দ্রিক তীব্র বিতর্ক দেখা দেবে।</p>
+                    </button>
+
+                    <button onclick="setGlobalIdeology('nationalism')" class="bg-gray-900 hover:bg-rose-950 border border-gray-800 hover:border-rose-700 p-4 rounded-xl text-left transition space-y-2">
+                        <div class="font-bold text-xs text-rose-300 flex items-center gap-2">
+                            <i class="fa-solid fa-shield-cat"></i> উগ্র জাতীয়তাবাদ
+                        </div>
+                        <p class="text-[11px] text-gray-400 leading-relaxed">সামরিক শক্তি বাড়বে কিন্তু বিশ্ব বাণিজ্য বন্ধ হবে এবং প্রতিবেশী রাষ্ট্রগুলোর মধ্যে সবসময় যুদ্ধ ভয় থাকবে।</p>
+                    </button>
+
+                    <button onclick="setGlobalIdeology('secular')" class="bg-gray-900 hover:bg-sky-950 border border-gray-800 hover:border-sky-700 p-4 rounded-xl text-left transition space-y-2">
+                        <div class="font-bold text-xs text-sky-300 flex items-center gap-2">
+                            <i class="fa-solid fa-scale-balanced"></i> বহুত্ববাদ ও উন্মুক্ত সমাজ
+                        </div>
+                        <p class="text-[11px] text-gray-400 leading-relaxed">ব্যক্তি স্বাধীনতা বাড়বে, তবে বিরোধী রাজনৈতিক শক্তি ধর্মকে অস্ত্র বানিয়ে দ্রুত সরকার পতন ঘটাতে চাইবে।</p>
+                    </button>
+                </div>
+
+                <div id="ideologyResultBox" class="bg-gray-900 border border-gray-800 p-4 rounded-xl text-xs text-gray-300 leading-relaxed">
+                    বর্তমান অবস্থা: সাধারণ বহুত্ববাদী সমাজ ব্যবস্থা চালু রয়েছে।
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: FOREIGN RELATIONS & WAR -->
+        <div id="content-diplomacy" class="tab-content hidden space-y-6">
+            <div class="bg-panelbg border border-gray-800 rounded-xl p-5 shadow-lg space-y-4">
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-emerald-400 border-b border-gray-800 pb-3 flex items-center justify-between">
+                    <span><i class="fa-solid fa-globe mr-2"></i> আন্তর্জাতিক কূটনৈতিক মানচিত্র ও যুদ্ধ ক্ষেত্র</span>
+                </h3>
+
+                <div id="diplomacyList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Dynamic Global Nations for Warfare/Alliances -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Global Event Modal -->
+    <div id="eventModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-panelbg border border-gray-700 max-w-md w-full rounded-xl p-5 shadow-2xl space-y-4">
+            <div class="flex items-center space-x-3 text-amber-400">
+                <i class="fa-solid fa-bell text-2xl"></i>
+                <h3 id="modalTitle" class="font-bold text-lg text-white">জরুরি বিশ্ব আপডেট</h3>
+            </div>
+            <p id="modalBody" class="text-xs text-gray-300 leading-relaxed"></p>
+            <div class="bg-gray-900 p-3 rounded-lg border border-gray-800 text-xs space-y-1">
+                <div class="font-semibold text-sky-400">প্রভাব:</div>
+                <div id="modalImpact" class="text-gray-400"></div>
+            </div>
+            <div class="flex justify-end">
+                <button onclick="closeModal()" class="bg-sky-600 hover:bg-sky-500 text-white text-xs px-4 py-2 rounded-lg font-medium transition">
+                    ঠিক আছে
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Status -->
+    <footer class="bg-panelbg border-t border-gray-800 py-3 px-4 text-xs text-gray-500">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div>জিওসিম ইঞ্জিন: বছর <span id="currentYear">২০২৬</span> - মাস <span id="currentMonth">১</span></div>
+            <div>সম্পূর্ণ ডাইনামিক রিয়েল-টাইম জিওপলিটিক্স সিস্টেম</div>
+        </div>
+    </footer>
+
+    <!-- JavaScript Game Engine -->
+    <script>
+        // Database of Real World Nations with Dynamic Traits
+        const worldData = {
+            BD: {
+                name: 'বাংলাদেশ',
+                leader: 'প্রধানমন্ত্রী / প্রধান উপদেষ্টা',
+                rank: '#২৮',
+                gdp: 460,
+                pop: 170,
+                treasury: 110,
+                military: 64.0,
+                happiness: 72,
+                unrest: 15,
+                ideology: 'ধর্মনিরপেক্ষ উন্নয়ন শাসন',
+                ministers: [
+                    { role: 'অর্থমন্ত্রী', name: 'ড. সালেহউদ্দিন', loyalty: 88 },
+                    { role: 'স্বরাষ্ট্রমন্ত্রী', name: 'জাহাঙ্গীর আলম', loyalty: 82 },
+                    { role: 'পররাষ্ট্রমন্ত্রী', name: 'মোঃ তৌহিদ হোসেন', loyalty: 85 }
+                ]
+            },
+            USA: {
+                name: 'যুক্তরাষ্ট্র (USA)',
+                leader: 'প্রেসিডেন্ট',
+                rank: '#১',
+                gdp: 27000,
+                pop: 335,
+                treasury: 1850,
+                military: 98.5,
+                happiness: 68,
+                unrest: 22,
+                ideology: 'উদার পুঁজিবাদী গণতন্ত্র',
+                ministers: [
+                    { role: 'সেক্রেটারি অব স্টেট', name: 'অ্যান্টনি ব্লিনকেন', loyalty: 90 },
+                    { role: 'ডিফেন্স সেক্রেটারি', name: 'লয়েড অস্টিন', loyalty: 86 },
+                    { role: 'ট্রেজারি সেক্রেটারি', name: 'জ্যানেট ইয়েলেন', loyalty: 92 }
+                ]
+            },
+            KSA: {
+                name: 'সৌদি আরব (Saudi Arabia)',
+                leader: 'বাদশাহ / ক্রাউন প্রিন্স',
+                rank: '#১৮',
+                gdp: 1100,
+                pop: 36,
+                treasury: 450,
+                military: 81.2,
+                happiness: 80,
+                unrest: 8,
+                ideology: 'ইসলামিক মূল্যবোধ ও ভিশন ২০৩০',
+                ministers: [
+                    { role: 'পররাষ্ট্রমন্ত্রী', name: 'প্রিন্স ফয়সাল', loyalty: 95 },
+                    { role: 'অর্থমন্ত্রী', name: 'মোহাম্মদ আল-জাদান', loyalty: 91 },
+                    { role: 'প্রতিরক্ষামন্ত্রী', name: 'প্রিন্স খালিদ', loyalty: 94 }
+                ]
+            },
+            CHN: {
+                name: 'চীন (China)',
+                leader: 'প্রেসিডেন্ট',
+                rank: '#২',
+                gdp: 18500,
+                pop: 1410,
+                treasury: 3200,
+                military: 94.0,
+                happiness: 76,
+                unrest: 10,
+                ideology: 'সমাজতান্ত্রিক আধুনিক রাষ্ট্র',
+                ministers: [
+                    { role: 'পররাষ্ট্রমন্ত্রী', name: 'ওয়াং ই', loyalty: 96 },
+                    { role: 'প্রতিরক্ষামন্ত্রী', name: 'ডং জুন', loyalty: 93 },
+                    { role: 'অর্থবিষয়ক প্রধান', name: 'হি লিফেং', loyalty: 95 }
+                ]
+            },
+            IND: {
+                name: 'ভারত (India)',
+                leader: 'প্রধানমন্ত্রী',
+                rank: '#৫',
+                gdp: 3750,
+                pop: 1420,
+                treasury: 600,
+                military: 86.5,
+                happiness: 70,
+                unrest: 18,
+                ideology: 'বহুত্ববাদী গণতন্ত্র',
+                ministers: [
+                    { role: 'পররাষ্ট্রমন্ত্রী', name: 'এস জয়শঙ্কর', loyalty: 92 },
+                    { role: 'স্বরাষ্ট্রমন্ত্রী', name: 'অমিত শাহ', loyalty: 94 },
+                    { role: 'অর্থমন্ত্রী', name: 'নির্মলা সীতারামন', loyalty: 88 }
+                ]
+            }
+        };
+
+        let currentCountryKey = 'BD';
+        let currentYear = 2026;
+        let currentMonth = 1;
+
+        let activeOrders = [];
+        let activeDemands = [];
+
+        window.onload = function() {
+            populateCountryList();
+            loadCountryData();
+            generateInitialDemands();
+        };
+
+        function populateCountryList() {
+            const select = document.getElementById('countrySelect');
+            select.innerHTML = '';
+            for (let key in worldData) {
+                let opt = document.createElement('option');
+                opt.value = key;
+                opt.innerText = worldData[key].name;
+                select.appendChild(opt);
+            }
+            select.value = currentCountryKey;
+        }
+
+        function changeCountry() {
+            currentCountryKey = document.getElementById('countrySelect').value;
+            loadCountryData();
+        }
+
+        function loadCountryData() {
+            const data = worldData[currentCountryKey];
+
+            document.getElementById('countryNameView').innerText = data.name;
+            document.getElementById('countryRankTag').innerText = `গ্লোবাল র‍্যাংক ${data.rank}`;
+            document.getElementById('countryLeaderView').innerText = `রাষ্ট্রপ্রধান: ${data.leader} | আইডিওলজি: ${data.ideology}`;
+
+            document.getElementById('statGDP').innerText = `$${data.gdp} বিলিয়ন`;
+            document.getElementById('statPop').innerText = `${data.pop} মিলিয়ন`;
+            document.getElementById('statTreasury').innerText = `রাজকোষ: $${data.treasury} বিলিয়ন`;
+            document.getElementById('statHappiness').innerText = `${Math.round(data.happiness)}%`;
+            document.getElementById('statMilitaryPower').innerText = data.military;
+
+            // Unrest
+            document.getElementById('barUnrest').style.width = `${Math.min(100, data.unrest)}%`;
+            document.getElementById('statUnrestText').innerText = data.unrest > 25 ? `উচ্চ (${Math.round(data.unrest)}%)` : `কম (${Math.round(data.unrest)}%)`;
+
+            // Cabinet
+            renderCabinet();
+            renderDiplomacy();
+        }
+
+        function renderCabinet() {
+            const data = worldData[currentCountryKey];
+            const list = document.getElementById('cabinetList');
+            list.innerHTML = '';
+
+            data.ministers.forEach((m, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-gray-900 border border-gray-800 p-3 rounded-lg flex justify-between items-center text-xs";
+                card.innerHTML = `
+                    <div>
+                        <div class="font-bold text-gray-200">${m.role}: ${m.name}</div>
+                        <div class="text-[10px] text-gray-500">আনুগত্য: ${m.loyalty}%</div>
+                    </div>
+                    <button onclick="fireMinister(${idx})" class="bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800 px-2 py-1 rounded">বরখাস্ত</button>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function fireMinister(idx) {
+            const data = worldData[currentCountryKey];
+            data.ministers[idx].name = "নতুন নিযুক্ত মন্ত্রী";
+            data.ministers[idx].loyalty = 75;
+            data.unrest += 2;
+            loadCountryData();
+        }
+
+        function reshuffleCabinet() {
+            const data = worldData[currentCountryKey];
+            data.ministers.forEach(m => m.loyalty = Math.floor(Math.random() * 20) + 75);
+            data.unrest = Math.max(5, data.unrest - 3);
+            alert("মন্ত্রিসভা সফলভাবে রিশাফেল বা পুনর্গঠন করা হয়েছে!");
+            loadCountryData();
+        }
+
+        // Tab Switcher
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('bg-sky-600', 'text-white');
+                el.classList.add('bg-gray-800', 'text-gray-300');
+            });
+
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-${tabName}`);
+            activeBtn.classList.remove('bg-gray-800', 'text-gray-300');
+            activeBtn.classList.add('bg-sky-600', 'text-white');
+        }
+
+        // Executive Order Logic
+        function issueExecutiveOrder() {
+            const text = document.getElementById('orderInputText').value.trim();
+            const target = document.getElementById('orderTarget').value;
+
+            if(!text) {
+                alert("অনুগ্রহ করে আদেশের বিবরণ লিখুন!");
+                return;
+            }
+
+            const data = worldData[currentCountryKey];
+            
+            // AI Impact Logic Simulation
+            let impactText = "";
+            if (target === 'economic') {
+                data.treasury += 25;
+                data.happiness -= 3;
+                impactText = "রাজকোষ রাজস্ব +$২৫B বেড়েছে, তবে জীবনযাত্রার খরচ বাড়ায় সন্তুষ্টি -৩% কমেছে।";
+            } else if (target === 'sanction') {
+                data.treasury -= 10;
+                data.military += 1.5;
+                data.unrest += 4;
+                impactText = "বিদেশী বাণিজ্য কিছুটা ক্ষতিগ্রস্ত হয়েছে, আন্তর্জাতিক উত্তেজনা বৃদ্ধি পেয়েছে।";
+            } else {
+                data.unrest -= 5;
+                data.happiness += 2;
+                impactText = "সামাজিক শৃঙ্খলা অর্জিত হয়েছে এবং অভ্যন্তরীণ শান্তি ফিরে এসেছে।";
+            }
+
+            activeOrders.unshift({ text, type: target, impact: impactText, date: `M${currentMonth}/${currentYear}` });
+            document.getElementById('orderInputText').value = '';
+            
+            renderOrders();
+            loadCountryData();
+            switchTab('orders');
+        }
+
+        function renderOrders() {
+            const list = document.getElementById('ordersLogList');
+            document.getElementById('activeOrdersCount').innerText = `${activeOrders.length} টি সক্রিয়`;
+            list.innerHTML = '';
+
+            activeOrders.forEach(o => {
+                const item = document.createElement('div');
+                item.className = "bg-gray-900 border border-gray-800 p-3 rounded-lg space-y-1.5";
+                item.innerHTML = `
+                    <div class="flex justify-between items-center font-semibold text-amber-400">
+                        <span><i class="fa-solid fa-scroll mr-1"></i> সরকারি গ্যাজেট</span>
+                        <span class="text-[10px] text-gray-500">${o.date}</span>
+                    </div>
+                    <div class="text-gray-200">${o.text}</div>
+                    <div class="text-[11px] text-emerald-400 border-t border-gray-800 pt-1">প্রভাব: ${o.impact}</div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // Demands & Notifications Engine
+        function generateInitialDemands() {
+            activeDemands = [
+                { id: 1, title: "শিক্ষক ও সরকারি কর্মকর্তাদের বেতন বৃদ্ধি", from: "জাতীয় শিক্ষক সমিতি", desc: "মূল্যস্ফীতি সামলাতে ২০% স্কেল বৃদ্ধির দাবি।", cost: 15, popBoost: 5, unrestPenalty: 8 },
+                { id: 2, title: "সামরিক আধুনিকায়ন ও ড্রোন বাজেট", from: "প্রতিরক্ষা মন্ত্রণালয়", desc: "সীমান্ত সুরক্ষায় নতুন যুদ্ধ সরঞ্জাম কেনার আবেদন।", cost: 30, popBoost: 2, unrestPenalty: 5 }
+            ];
+            renderDemands();
+        }
+
+        function renderDemands() {
+            const feed = document.getElementById('demandsFeedList');
+            document.getElementById('demandBadge').innerText = activeDemands.length;
+            feed.innerHTML = '';
+
+            activeDemands.forEach(d => {
+                const card = document.createElement('div');
+                card.className = "bg-gray-900 border border-gray-800 p-4 rounded-xl space-y-3";
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="font-bold text-gray-200 text-xs">${d.title}</h4>
+                            <span class="text-[10px] text-sky-400 bg-sky-950 px-2 py-0.5 rounded border border-sky-800">উৎস: ${d.from}</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400 leading-relaxed">${d.desc}</p>
+                    <div class="flex gap-2 pt-2 border-t border-gray-800">
+                        <button onclick="resolveDemand(${d.id}, true)" class="flex-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-200 border border-emerald-800 text-xs py-1.5 rounded transition">মেনে নিন (-$${d.cost}B)</button>
+                        <button onclick="resolveDemand(${d.id}, false)" class="flex-1 bg-rose-950 hover:bg-rose-900 text-rose-200 border border-rose-800 text-xs py-1.5 rounded transition">প্রত্যাখ্যান করুন</button>
+                    </div>
+                `;
+                feed.appendChild(card);
+            });
+        }
+
+        function resolveDemand(id, accepted) {
+            const data = worldData[currentCountryKey];
+            const idx = activeDemands.findIndex(d => d.id === id);
+            if (idx === -1) return;
+
+            const d = activeDemands[idx];
+            if (accepted) {
+                if (data.treasury < d.cost) {
+                    alert("রাজকোষে পর্যাপ্ত বাজেট নেই!");
+                    return;
+                }
+                data.treasury -= d.cost;
+                data.happiness += d.popBoost;
+                alert(`দাবি মেনে নেওয়া হয়েছে। সন্তুষ্টি +${d.popBoost}% বেড়েছে।`);
+            } else {
+                data.unrest += d.unrestPenalty;
+                alert(`দাবি প্রত্যাখ্যান করায় ক্ষোভ ও আন্দোলন +${d.unrestPenalty}% বেড়েছে।`);
+            }
+
+            activeDemands.splice(idx, 1);
+            renderDemands();
+            loadCountryData();
+        }
+
+        function generateRandomDemand() {
+            const newDemand = {
+                id: Date.now(),
+                title: "কৃষি ভর্তুকি ও সার সরবরাহ নিশ্চিতকরণ",
+                from: "কৃষক অধিকার পরিষদ",
+                desc: "খাদ্য উৎপাদন ঠিক রাখতে জ্বালানি ও সারে অতিরিক্ত ভর্তুকির দাবি।",
+                cost: 20,
+                popBoost: 6,
+                unrestPenalty: 10
+            };
+            activeDemands.unshift(newDemand);
+            renderDemands();
+        }
+
+        // Ideology Simulator
+        function setGlobalIdeology(type) {
+            const box = document.getElementById('ideologyResultBox');
+            const data = worldData[currentCountryKey];
+
+            if (type === 'unified') {
+                data.unrest += 10;
+                box.innerHTML = `<b class="text-purple-400">ফলাফল:</b> পুরো বিশ্বে একটি একক ধর্ম প্রচারের ফলে বিশ্বযুদ্ধ কমলেও বিভিন্ন দেশে <span class="text-rose-400">নতুন উপ-দল ও সংস্কারবাদী গোষ্ঠী</span> তৈরি হয়েছে। রাষ্ট্র পরিচালনায় নতুন মতপার্থক্য দেখা দিয়েছে।`;
+            } else if (type === 'nationalism') {
+                data.military += 5;
+                data.happiness -= 5;
+                box.innerHTML = `<b class="text-rose-400">ফলাফল:</b> চরম জাতীয়তাবাদের কারণে সামরিক সক্ষমতা বাড়লেও আন্তর্জাতিক বাণিজ্য বন্ধ হয়ে মূল্যস্ফীতি বেড়ে গেছে।`;
+            } else {
+                box.innerHTML = `<b class="text-sky-400">ফলাফল:</b> উন্মুক্ত সমাজে বাকস্বাধীনতা ও ব্যবসা বেড়েছে, তবে রাজনৈতিক দলগুলোর কাদা ছোড়াছুড়িতে সরকার অস্থিতিশীল হচ্ছে।`;
+            }
+            loadCountryData();
+        }
+
+        // Diplomacy & War Panel
+        function renderDiplomacy() {
+            const list = document.getElementById('diplomacyList');
+            list.innerHTML = '';
+
+            for (let key in worldData) {
+                if (key === currentCountryKey) continue;
+                const target = worldData[key];
+
+                const card = document.createElement('div');
+                card.className = "bg-gray-900 border border-gray-800 p-4 rounded-xl space-y-2 text-xs";
+                card.innerHTML = `
+                    <div class="flex justify-between font-bold text-gray-200">
+                        <span>${target.name}</span>
+                        <span class="text-amber-400">শক্তি: ${target.military}</span>
+                    </div>
+                    <div class="text-gray-400 text-[11px]">আইডিওলজি: ${target.ideology}</div>
+                    <button onclick="declareWar('${key}')" class="w-full bg-rose-950 hover:bg-rose-900 text-rose-200 border border-rose-800 py-1.5 rounded mt-2">
+                        কূটনৈতিক চাপ / আক্রমণ
+                    </button>
+                `;
+                list.appendChild(card);
+            }
+        }
+
+        function declareWar(targetKey) {
+            const player = worldData[currentCountryKey];
+            const target = worldData[targetKey];
+
+            if (confirm(`${target.name}-এর বিরুদ্ধে সামরিক অভিযান চালাতে চান?`)) {
+                if (player.military > target.military) {
+                    player.treasury += 40;
+                    player.happiness += 5;
+                    alert(`জয়! ${target.name}-এর ওপর প্রভাব বিস্তার করা সম্ভব হয়েছে।`);
+                } else {
+                    player.military -= 8;
+                    player.unrest += 12;
+                    alert(`প্রতিরোধের মুখে পিছু হটতে হয়েছে। সেনাবহরের ক্ষতি হয়েছে।`);
+                }
+                loadCountryData();
+            }
+        }
+
+        // Real World Sync Event Button
+        function syncRealWorldEvents() {
+            const icon = document.getElementById('syncIcon');
+            icon.classList.add('fa-spin');
+
+            setTimeout(() => {
+                icon.classList.remove('fa-spin');
+
+                const newsEvents = [
+                    { title: "মধ্যপ্রাচ্যে নতুন তেল চুক্তি", desc: "তেলের বৈশ্বিক দাম কমায় আন্তর্জাতিক বাজারে স্বস্তি এসেছে।", impact: "রাজকোষ +$২০B", apply: (d) => d.treasury += 20 },
+                    { title: "বিশ্বব্যাপী সাইবার অ্যাটাক", desc: "ব্যাংকিং ও অর্থনৈতিক সার্ভারে সাময়িক বিঘ্ন ঘটেছে।", impact: "জনগণ সন্তুষ্টি -৪%", apply: (d) => d.happiness -= 4 }
+                ];
+
+                const ev = newsEvents[Math.floor(Math.random() * newsEvents.length)];
+                ev.apply(worldData[currentCountryKey]);
+
+                showModal(ev.title, ev.desc, ev.impact);
+                loadCountryData();
+            }, 800);
+        }
+
+        function nextTurn() {
+            currentMonth++;
+            if (currentMonth > 12) {
+                currentMonth = 1;
+                currentYear++;
+            }
+            document.getElementById('currentMonth').innerText = currentMonth;
+            document.getElementById('currentYear').innerText = currentYear;
+
+            const data = worldData[currentCountryKey];
+            data.treasury += 15; // Monthly revenue
+            loadCountryData();
+        }
+
+        function updateSliders() {
+            document.getElementById('valFood').innerText = document.getElementById('slideFood').value + '%';
+            document.getElementById('valHealth').innerText = document.getElementById('slideHealth').value + '%';
+            document.getElementById('valMilitary').innerText = document.getElementById('slideMilitary').value + '%';
+            document.getElementById('valEdu').innerText = document.getElementById('slideEdu').value + '%';
+        }
+
+        function showModal(title, body, impact) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalBody').innerText = body;
+            document.getElementById('modalImpact').innerText = impact;
+            document.getElementById('eventModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('eventModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
